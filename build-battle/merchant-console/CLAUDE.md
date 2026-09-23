@@ -8,8 +8,14 @@ Northwind Payments is fictional. Every merchant, cardholder, amount, and card in
 
 ```bash
 npm install
-npm run dev
+npm run dev          # http://localhost:3000
+npm run build        # production build
+npm run lint         # next lint
+npm test             # vitest run — money/date/csv helpers, <1s
+npm run test:watch
 ```
+
+Single file: `npx vitest run src/lib/csv.test.ts`. Single case: add `-t "name substring"`.
 
 No database, no seed step, no Docker.
 
@@ -41,6 +47,12 @@ These four explain most of the code, and breaking them is how bugs get in here.
 3. **One query builder.** Payment filtering goes through the builder behind `GET /api/payments`. A second implementation is a bug, not a shortcut.
 4. **Validate on the server.** Anything from the client — column names, currencies, limits, statuses — is checked against an allowlist before it reaches a query, a filename, or the store.
 
+## How data flows
+
+- Pages under `src/app/` are server components that call the query functions in `src/data/queries.ts` (`queryPayments`, `filterPayments`, `sortPayments`, `paginate`) **directly** — they do not fetch `/api/payments` over HTTP. The API routes exist for the browser (the Payments page's Export link, any future client-side fetch), not for other server code to call into.
+- The in-memory store (`src/data/store.ts`) is generated once by `src/data/generate.ts` and cached on `globalThis`, so it survives Next.js dev-server module reloads instead of resetting on every request — restart the dev server, not just save a file, if you need a clean slate.
+- `toCsv()` in `src/lib/csv.ts` already accepts an optional `columns` argument; the export route is the only caller today and hard-codes the default set. Extending column selection means threading a param through the route, not changing the serializer's shape.
+
 ## Card rules
 
 - Generated numbers use the `4242` test BIN and a valid Luhn check digit. Nothing here may resemble a real PAN.
@@ -60,3 +72,9 @@ These four explain most of the code, and breaking them is how bugs get in here.
 ## Before you push
 
 Run `npm test`, then `/ship-ready`. The skill checks the rules above, not just formatting.
+
+## Release Standards
+
+- All changes need test evidence before merging.
+- No direct commits to main.
+- Every PR must include a one-line business impact summary.

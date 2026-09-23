@@ -25,6 +25,27 @@ export const EXPORT_COLUMNS = [
 
 export type ExportColumn = (typeof EXPORT_COLUMNS)[number]
 
+/** The dialog's initial column selection — everything except card last four. */
+export const DEFAULT_EXPORT_COLUMNS: readonly ExportColumn[] = EXPORT_COLUMNS.filter(
+  (column) => column !== "last4",
+)
+
+/**
+ * Allowlists the client-supplied `columns` param. Unknown tokens are dropped,
+ * duplicates are dropped, and the requested order is preserved. `null` (the
+ * param was absent) resolves to every column, so an export URL with no
+ * `columns` param behaves exactly as it did before this existed.
+ */
+export function parseExportColumns(raw: string | null): ExportColumn[] {
+  if (raw === null) return [...EXPORT_COLUMNS]
+  const seen = new Set<ExportColumn>()
+  for (const token of raw.split(",")) {
+    const trimmed = token.trim() as ExportColumn
+    if ((EXPORT_COLUMNS as readonly string[]).includes(trimmed)) seen.add(trimmed)
+  }
+  return [...seen]
+}
+
 function escapeCell(value: string): string {
   if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`
   return value
@@ -66,6 +87,7 @@ export function toCsv(
   return [header, ...rows].join("\n")
 }
 
-export function exportFilename(date = new Date()): string {
-  return `payments-${date.toISOString().slice(0, 10)}.csv`
+export function exportFilename(date = new Date(), scope?: string): string {
+  const day = date.toISOString().slice(0, 10)
+  return scope ? `payments-${scope}-${day}.csv` : `payments-${day}.csv`
 }
