@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Northwind Payments — Merchant Console: Architecture Overview</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #5b6572;
+    --line: #e2e5e9;
+    --accent: #2f6feb;
+    --bg-code: #f4f6f8;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 1.7rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-top: 0; margin-bottom: 40px; }
+  h2 {
+    font-size: 1.15rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  h3 { font-size: 1rem; margin-top: 24px; }
+  code {
+    background: var(--bg-code);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
+  pre {
+    background: var(--bg-code);
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  ul { padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  .flow {
+    list-style: none;
+    padding-left: 0;
+    margin: 16px 0;
+    border-left: 2px solid var(--accent);
+  }
+  .flow li {
+    position: relative;
+    padding: 4px 0 4px 20px;
+  }
+  .flow li::before {
+    content: "";
+    position: absolute;
+    left: -6px;
+    top: 10px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .file { color: var(--accent); }
+  .note {
+    background: #fff8e6;
+    border: 1px solid #f0dca0;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  .tag {
+    display: inline-block;
+    background: var(--bg-code);
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-right: 4px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Northwind Payments — Merchant Console</h1>
+<p class="subtitle">Architecture overview · generated from a codebase investigation</p>
+
+<h2>1. What the app does</h2>
+<p>
+  Northwind Payments is a fictional payments company. This app is its <strong>merchant console</strong> —
+  an internal tool for support and operations staff, not a customer-facing product. It's used to:
+</p>
+<ul>
+  <li>Look up a payment and issue a refund</li>
+  <li>Work the dispute queue</li>
+  <li>Monitor volume, authorization/capture/dispute rates, and per-merchant activity</li>
+  <li>Issue and manage virtual cards <span class="tag">planned — NWP-201</span></li>
+</ul>
+<p>
+  The landing page (<code>/overview</code>, the app root <code>/</code> redirects here) shows headline stats
+  (gross volume, payment count, open disputes and amount at risk), a daily volume chart, and a recent-payments
+  list. From there, <code>/payments</code>, <code>/disputes</code>, and <code>/payouts</code> cover the rest
+  of the nav.
+</p>
+<div class="note">
+  All data — merchants, cardholders, amounts, disputes, card numbers — is synthetically generated.
+  Card numbers use the <code>4242</code> test BIN only; nothing here resembles real payment data.
+</div>
+
+<h2>2. Tech stack</h2>
+<table>
+  <tr><th>Layer</th><th>Choice</th></tr>
+  <tr><td>Framework</td><td>Next.js 15.1.9 (App Router), React 19, TypeScript 5.9 (strict)</td></tr>
+  <tr><td>Styling</td><td>Tailwind CSS 3.4, <code>tailwind-variants</code> / <code>tailwind-merge</code> for composable variants, <code>next-themes</code> for dark mode</td></tr>
+  <tr><td>UI primitives</td><td>Radix UI (dialog, select, tabs, dropdown-menu, accordion, navigation-menu) wrapped by local Tremor-style components</td></tr>
+  <tr><td>Icons</td><td><code>lucide-react</code>, <code>@remixicon/react</code></td></tr>
+  <tr><td>Charts</td><td><code>recharts</code>, wrapped by local <code>BarChart</code> / <code>ComboChart</code> components</td></tr>
+  <tr><td>Data layer</td><td>None — no DB/ORM. In-memory store, seeded once at boot, cached on <code>globalThis</code> to survive dev-server module reloads</td></tr>
+  <tr><td>Testing</td><td>Vitest, <code>environment: "node"</code> (no DOM) — scoped to pure logic in <code>src/lib/**/*.test.ts</code></td></tr>
+  <tr><td>Lint/format</td><td>ESLint (<code>eslint-config-next</code>), Prettier + <code>prettier-plugin-tailwindcss</code></td></tr>
+</table>
+<p style="color: var(--muted); font-size: 0.9rem;">Built on the <code>tremorlabs/template-planner</code> starter (see <code>LICENSE.md</code> / <code>NOTICE</code>).</p>
+
+<h2>3. How <code>src/</code> is organized</h2>
+<pre>src/
+├── app/                     Next.js App Router routes
+│   ├── layout.tsx           Root layout: fonts, ThemeProvider, Sidebar
+│   ├── page.tsx             "/" → redirect("/overview")
+│   ├── siteConfig.ts        App name, nav links
+│   ├── api/payments/
+│   │   ├── route.ts         GET /api/payments — THE query builder entry point
+│   │   └── export/route.ts  CSV export endpoint
+│   ├── overview/            Dashboard: stats, chart, recent payments, sub-tabs
+│   ├── payments/
+│   │   ├── page.tsx         Payments table + Export button
+│   │   ├── filter-bar.tsx   Status/merchant/search controls
+│   │   └── [id]/page.tsx    Payment detail (dynamic route)
+│   ├── disputes/page.tsx
+│   └── payouts/page.tsx
+├── components/              Reusable UI primitives (Tremor/Radix-based)
+│   └── ui/                  Feature-specific composites (navigation, overview, payments)
+├── data/                    In-memory data layer
+│   ├── store.ts             In-memory store, seeded at boot
+│   ├── generate.ts          Seed data generation
+│   ├── types.ts             Merchant, Payment, Refund, Dispute, Payout, PaymentFilters
+│   ├── merchants.ts, metrics.ts, analytics.ts
+│   └── queries.ts           parseFilters / filterPayments / sortPayments / paginate / queryPayments
+└── lib/                     Pure helpers, each paired with a co-located *.test.ts
+    ├── money.ts             Integer-minor-units money math
+    ├── dates.ts             UTC storage/bucketing helpers
+    ├── csv.ts               CSV serialization
+    └── utils.ts, chartUtils.ts, hooks...
+</pre>
+<p>
+  Routing is flat (no <code>(group)</code> folders) and mirrors the top-level nav. API routes live under
+  <code>app/api/**/route.ts</code>. Context itself is layered on purpose across four <code>CLAUDE.md</code>
+  files (repo → exercise → app → per-file rules in <code>.claude/rules/*.md</code>), each narrower than the last.
+</p>
+<h3>Conventions worth knowing before editing</h3>
+<ul>
+  <li><strong>Money</strong> is always an integer in minor units internally; formatted only at the display edge via <code>src/lib/money.ts</code>.</li>
+  <li><strong>Dates</strong> are stored/bucketed in UTC; local-time conversion happens only at render, via <code>src/lib/dates.ts</code>.</li>
+  <li><strong>One query builder</strong> for payments — everything filters through <code>src/data/queries.ts</code>. A second filter implementation is treated as a defect.</li>
+  <li><strong>Server-side allowlist validation</strong> for anything arriving from the client (column names, sort fields, statuses) — never interpolated directly into a query or filename.</li>
+  <li>No database: seed data is generated JSON loaded into memory at boot; writes live only for the dev-server's lifetime.</li>
+</ul>
+
+<h2>4. Payments export — end to end</h2>
+<p>Today's export is a plain browser download with no client-side JS — here's the full chain:</p>
+<ul class="flow">
+  <li><span class="file">src/app/payments/page.tsx</span> — renders the table via <code>queryPayments()</code>. The Export control is just an <code>&lt;a href="/api/payments/export?&lt;current filters&gt;"&gt;</code> — no click handler, no CSV building in the browser. Filters come from <span class="file">src/app/payments/filter-bar.tsx</span> via URL search params.</li>
+  <li>Browser navigates to <span class="file">src/app/api/payments/export/route.ts</span> (<code>GET</code>).</li>
+  <li>The route calls <code>parseFilters()</code> (validates/allowlists query params), then <code>filterPayments()</code> and <code>sortPayments()</code> — all three from <span class="file">src/data/queries.ts</span>, operating over the in-memory <code>Payment[]</code> in <span class="file">src/data/store.ts</span>, with merchant-name lookups via <span class="file">src/data/merchants.ts</span>.</li>
+  <li>The resulting rows go into <code>toCsv(rows)</code> in <span class="file">src/lib/csv.ts</span>, which uses a fixed <code>EXPORT_COLUMNS</code> tuple, formats amounts via <code>formatMoney()</code> from <span class="file">src/lib/money.ts</span>, and escapes cells.</li>
+  <li>The route returns a <code>Response</code> with <code>content-type: text/csv</code> and <code>content-disposition: attachment; filename="&lt;exportFilename()&gt;"</code> — the browser triggers the download natively.</li>
+</ul>
+
+<h3>Seams already visible for NWP-101</h3>
+<ul>
+  <li><code>toCsv(payments, columns?)</code> already accepts an optional column list — only the route needs to expose it to the client.</li>
+  <li>The export route bypasses <code>paginate()</code>, calling <code>filterPayments</code>/<code>sortPayments</code> directly — so "scope" today already means <em>all</em> filtered rows, not just the visible page. A "current page" option would need new plumbing.</li>
+  <li><code>parseFilters()</code> is the existing allowlist boundary — any new column/scope params should validate through it (or an equivalent check in the export route) before reaching <code>toCsv</code> or the filename.</li>
+</ul>
+<div class="note">
+  Card last-four ships in every export today with no way to exclude it — the exact gap NWP-101 exists to close.
+</div>
+
+</body>
+</html>
